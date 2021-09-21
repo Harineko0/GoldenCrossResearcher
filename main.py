@@ -32,10 +32,15 @@ def stock_slope(array: numpy.ndarray):
     return slope
 
 
-def golden_cross(data_frame: pandas.DataFrame):
-    return data_frame["5Slope"][0] > 0 and data_frame["25Slope"][0] > 0 and \
-           data_frame["5Average"][0] < data_frame["25Average"][0] and \
-           data_frame["5Average"][0] < data_frame["50Average"][0]
+def is_golden_cross(data: pandas.DataFrame):
+    return data["5Slope"][0] > 0 and \
+           data["5Average"][0] < data["25Average"][0] and \
+           data["5Average"][0] < data["50Average"][0]
+           # data['25Slope'][0] > 0 and \
+
+
+def is_no_hope(data: pandas.DataFrame):
+    return data["5Slope"][0] < 0
 
 
 def get_stock_codes():
@@ -56,36 +61,43 @@ if __name__ == '__main__':
         writer = csv.writer(file)
         writer.writerow(["Code"])
 
-    with open('fetched.csv', "w") as file:
-        writer = csv.writer(file)
-        writer.writerow(["Code"])
+    fetchedStocks = pandas.read_csv('fetched.csv')
+    fetched = fetchedStocks['Code'].tolist()
+
+    no_hope_stocks = pandas.read_csv('no_hope.csv')
+    no_hope = no_hope_stocks['Code'].tolist()
 
     st = datetime(2021, 6, 10)
-    ed = datetime(2021, 9, 14)
+    ed = datetime.now()
 
     stock_codes = get_stock_codes()
-    fetched = []
 
     for i in range(3000):
         code = stock_codes[random.randrange(0, len(stock_codes))]
-        if code not in fetched:
+        if code not in fetched and code not in no_hope:
             fetched.append(code)
             with open('fetched.csv', "a") as file:
                 writer = csv.writer(file)
                 writer.writerow([code])
             print(code)
             time.sleep(4)
-            df = web.DataReader(code + ".JP", "stooq", st, ed)
-            print(df)
+            data = web.DataReader(code + ".JP", "stooq", st, ed)
+            print(data)
 
-            if "Close" in df.columns:
-                df.loc[:, "5Average"] = simple_moving_average(df["Close"], 5)
-                df.loc[:, "25Average"] = simple_moving_average(df["Close"], 25)
-                df.loc[:, "50Average"] = simple_moving_average(df["Close"], 50)
-                df.loc[:, "5Slope"] = stock_slope(df["5Average"])
-                df.loc[:, "25Slope"] = stock_slope(df["25Average"])
-                if golden_cross(df):
+            if "Close" in data.columns:
+                data.loc[:, "5Average"] = simple_moving_average(data["Close"], 5)
+                data.loc[:, "25Average"] = simple_moving_average(data["Close"], 25)
+                data.loc[:, "50Average"] = simple_moving_average(data["Close"], 50)
+                data.loc[:, "5Slope"] = stock_slope(data["5Average"])
+                data.loc[:, "25Slope"] = stock_slope(data["25Average"])
+                if is_golden_cross(data):
                     print(code + ": golden cross")
                     with open('result.csv', 'a') as file:
+                        writer = csv.writer(file)
+                        writer.writerow([code])
+
+                if is_no_hope(data):
+                    print(code + ": no hope")
+                    with open('no_hope.csv', 'a') as file:
                         writer = csv.writer(file)
                         writer.writerow([code])
